@@ -153,7 +153,7 @@ namespace cereal
       //! Destructor, flushes the JSON
       ~JSONOutputArchive()
       {
-        if (itsNodeStack.top() == NodeType::InObject)
+        if (itsNodeStack.size() > 0 && itsNodeStack.top() == NodeType::InObject)
           itsWriter.EndObject();
       }
 
