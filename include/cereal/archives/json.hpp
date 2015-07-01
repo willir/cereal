@@ -52,6 +52,7 @@ namespace cereal
 #include <cereal/external/rapidjson/document.h>
 #include <cereal/external/base64.hpp>
 
+#include <cstddef>
 #include <limits>
 #include <sstream>
 #include <stack>
@@ -235,6 +236,8 @@ namespace cereal
       void saveValue(std::string const & s) { itsWriter.String(s.c_str(), static_cast<rapidjson::SizeType>( s.size() )); }
       //! Saves a const char * to the current node
       void saveValue(char const * s)        { itsWriter.String(s);                                                       }
+      //! Saves a null to the current node
+      void saveValue(std::nullptr_t)        { itsWriter.Null_();                                                         }
 
     private:
       // Some compilers/OS have difficulty disambiguating the above for various flavors of longs, so we provide
