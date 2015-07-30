@@ -125,7 +125,7 @@ namespace cereal
           explicit Options( int precision = std::numeric_limits<double>::max_digits10,
                             IndentChar indentChar = IndentChar::space,
                             unsigned int indentLength = 4 ) :
-            itsPrecision( precision ),
+            itsPrecision( precision ),  // todo: Remove, because it useless.
             itsIndentChar( static_cast<char>(indentChar) ),
             itsIndentLength( indentLength ) { }
 
@@ -143,7 +143,7 @@ namespace cereal
       JSONOutputArchive(std::ostream & stream, Options const & options = Options::Default() ) :
         OutputArchive<JSONOutputArchive>(this),
         itsWriteStream(stream),
-        itsWriter(itsWriteStream, options.itsPrecision),
+        itsWriter(itsWriteStream),
         itsNextName(nullptr)
       {
         itsWriter.SetIndent( options.itsIndentChar, options.itsIndentLength );
@@ -221,7 +221,7 @@ namespace cereal
       }
 
       //! Saves a bool to the current node
-      void saveValue(bool b)                { itsWriter.Bool_(b);                                                         }
+      void saveValue(bool b)                { itsWriter.Bool(b);                                                         }
       //! Saves an int to the current node
       void saveValue(int i)                 { itsWriter.Int(i);                                                          }
       //! Saves a uint to the current node
@@ -237,7 +237,7 @@ namespace cereal
       //! Saves a const char * to the current node
       void saveValue(char const * s)        { itsWriter.String(s);                                                       }
       //! Saves a null to the current node
-      void saveValue(std::nullptr_t)        { itsWriter.Null_();                                                         }
+      void saveValue(std::nullptr_t)        { itsWriter.Null();                                                         }
 
     private:
       // Some compilers/OS have difficulty disambiguating the above for various flavors of longs, so we provide
@@ -604,7 +604,7 @@ namespace cereal
       }
 
       //! Loads a value from the current node - bool overload
-      void loadValue(bool & val)        { search(); val = itsIteratorStack.back().value().GetBool_();   ++itsIteratorStack.back(); }
+      void loadValue(bool & val)        { search(); val = itsIteratorStack.back().value().GetBool();   ++itsIteratorStack.back(); }
       //! Loads a value from the current node - int64 overload
       void loadValue(int64_t & val)     { search(); val = itsIteratorStack.back().value().GetInt64();  ++itsIteratorStack.back(); }
       //! Loads a value from the current node - uint64 overload
@@ -634,12 +634,11 @@ namespace cereal
       template <class T> inline
       typename std::enable_if<sizeof(T) == sizeof(std::uint32_t) && !std::is_signed<T>::value, void>::type
       loadLong(T & lu){ loadValue( reinterpret_cast<std::uint32_t&>( lu ) ); }
-
       //! non 32 bit unsigned long loading from current node
       template <class T> inline
       typename std::enable_if<sizeof(T) == sizeof(std::uint64_t) && !std::is_signed<T>::value, void>::type
       loadLong(T & lu){ loadValue( reinterpret_cast<std::uint64_t&>( lu ) ); }
-            
+
     public:
       //! Serialize a long if it would not be caught otherwise
       template <class T> inline
