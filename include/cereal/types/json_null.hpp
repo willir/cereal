@@ -15,7 +15,7 @@ template <class T, class D> inline
 typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
 prologue( JSONOutputArchive & ar, const std::unique_ptr<T, D> & )
 {
-    ar.writeName();
+  ar.writeName();
 }
 
 // ######################################################################
@@ -30,11 +30,11 @@ template <class T, class D> inline
 typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
 CEREAL_SAVE_FUNCTION_NAME( JSONOutputArchive & ar, std::unique_ptr<T, D> const & ptr )
 {
-    if(ptr) {
-        CEREAL_SAVE_FUNCTION_NAME(ar, *ptr);
-    } else {
-        ar.saveValue(nullptr);
-    }
+  if (ptr) {
+    CEREAL_SAVE_FUNCTION_NAME(ar, *ptr);
+  } else {
+    ar.saveValue(nullptr);
+  }
 }
 
 // ######################################################################
@@ -56,12 +56,12 @@ template <class T, class D> inline
 typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
 CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, std::unique_ptr<T, D> & ptr )
 {
-    if(!ar.isNull()) {
-        if(!ptr) ptr.reset(new T());
-        CEREAL_LOAD_FUNCTION_NAME(ar, *ptr);
-    } else {
-        ptr.reset(nullptr);
-    }
+  if (!ar.isNull()) {
+    if (!ptr) ptr.reset(new T());
+    CEREAL_LOAD_FUNCTION_NAME(ar, *ptr);
+  } else {
+    ptr.reset(nullptr);
+  }
 }
 
 } // namespace cereal
