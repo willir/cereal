@@ -10,7 +10,7 @@
 namespace cereal {
 
 // ######################################################################
-//! Prologue for std::unique_ptr for JSON archives
+//! Prologue for std::unique_ptr for JSON Output archive
 template <class T, class D> inline
 typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
 prologue( JSONOutputArchive & ar, const std::unique_ptr<T, D> & )
@@ -19,7 +19,7 @@ prologue( JSONOutputArchive & ar, const std::unique_ptr<T, D> & )
 }
 
 // ######################################################################
-//! Epilogue for std::unique_ptr for JSON archives
+//! Epilogue for std::unique_ptr for JSON Output archive
 template <class T, class D> inline
 typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
 epilogue( JSONOutputArchive &, const std::unique_ptr<T, D> & )
@@ -37,7 +37,33 @@ CEREAL_SAVE_FUNCTION_NAME( JSONOutputArchive & ar, std::unique_ptr<T, D> const &
     }
 }
 
-} // namespace cereal
+// ######################################################################
+//! Prologue for std::unique_ptr for JSON Input archive
+template <class T, class D> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+prologue( JSONInputArchive &, const std::unique_ptr<T, D> & )
+{ }
 
+// ######################################################################
+//! Epilogue for std::unique_ptr for JSON Input archive
+template <class T, class D> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+epilogue( JSONInputArchive &, const std::unique_ptr<T, D> & )
+{ }
+
+//! Loading std::unique_ptr for non polymorphic types
+template <class T, class D> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, std::unique_ptr<T, D> & ptr )
+{
+    if(!ar.isNull()) {
+        if(!ptr) ptr.reset(new T());
+        CEREAL_LOAD_FUNCTION_NAME(ar, *ptr);
+    } else {
+        ptr.reset(nullptr);
+    }
+}
+
+} // namespace cereal
 
 #endif //CEREAL_TYPES_JSON_NULL_HPP_

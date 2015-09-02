@@ -41,6 +41,14 @@ using std::string;
 
 using cereal::make_nvp;
 
+template<typename C>
+bool eq_unique_ptr(const std::unique_ptr<C> &lhs, const std::unique_ptr<C> &rhs) {
+    if(!lhs && !rhs) return true;
+    if(!lhs || !rhs) return false;
+
+    return *lhs == *rhs;
+}
+
 struct ObjWithNull {
 public:
     class Name {
@@ -73,6 +81,34 @@ public:
     }
 };
 
+template<typename C>
+std::ostream &operator<<(std::ostream &os, const unique_ptr<C> &obj) {
+    if(obj) {
+        return os << *obj;
+    } else {
+        return os << "nullptr";
+    }
+}
+
+std::ostream &operator<<(std::ostream &os, const ObjWithNull &obj) {
+    os << "{ "
+       << obj.nullableStr << ";"
+       << obj.nullableInt << ";"
+       << obj.nullStr << ";"
+       << obj.nullInt
+       << "}";
+    return os;
+}
+
+inline bool operator==(const ObjWithNull& lhs, const ObjWithNull& rhs) {
+    if(!eq_unique_ptr(lhs.nullableStr, rhs.nullableStr)) return false;
+    if(!eq_unique_ptr(lhs.nullableInt, rhs.nullableInt)) return false;
+    if(!eq_unique_ptr(lhs.nullStr, rhs.nullStr)) return false;
+    if(!eq_unique_ptr(lhs.nullInt, rhs.nullInt)) return false;
+
+    return true;
+}
+
 constexpr char ObjWithNull::Name::NULLABLE_STR[];
 constexpr char ObjWithNull::Name::NULLABLE_INT[];
 constexpr char ObjWithNull::Name::NULL_STR[];
@@ -99,4 +135,21 @@ BOOST_AUTO_TEST_CASE( json_null_output )
     BOOST_CHECK_EQUAL(doc[Name::NULLABLE_STR].GetString(), "someString");
     BOOST_CHECK(doc[Name::NULL_STR].IsNull());
     BOOST_CHECK(doc[Name::NULL_INT].IsNull());
+}
+
+BOOST_AUTO_TEST_CASE( json_null_input )
+{
+    ObjWithNull objOut("someString", 2);
+
+    std::stringstream ss;
+    {
+        cereal::JSONOutputArchive arOut(ss);
+        objOut.serialize(arOut);
+    }
+
+    ObjWithNull objIn;
+    cereal::JSONInputArchive arIn(ss);
+    objIn.serialize(arIn);
+
+    BOOST_CHECK_EQUAL(objOut, objIn);
 }
