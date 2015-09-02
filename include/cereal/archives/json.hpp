@@ -488,8 +488,9 @@ namespace cereal
           }
 
           //! Adjust our position such that we are at the node with the given name
-          /*! @throws Exception if no such named node exists */
-          inline void search( const char * searchName )
+          /*! @throws Exception if no such named node exists and throwException == true */
+          /*! @return false if no such named node exists */
+          inline bool findName( const char * searchName, bool throwException )
           {
             const auto len = std::strlen( searchName );
             size_t index = 0;
@@ -500,14 +501,18 @@ namespace cereal
                   ( std::strlen( currentName ) == len ) )
               {
                 itsIndex = index;
-                return;
+                return true;
               }
             }
 
-            throw Exception("JSON Parsing failed - provided NVP not found");
+            if(throwException)
+              throw Exception("JSON Parsing failed - provided NVP not found");
+
+            return false;
           }
 
         private:
+
           MemberIterator itsMemberItBegin, itsMemberItEnd; //!< The member iterator (object)
           ValueIterator itsValueItBegin, itsValueItEnd;    //!< The value iterator (array)
           size_t itsIndex;                                 //!< The current index of this iterator
@@ -525,6 +530,35 @@ namespace cereal
           @throws Exception if an expectedName is given and not found */
       inline void search()
       {
+        findNameInner(true);
+      }
+
+      //! Searches for the expectedName node if it doesn't match the actualName
+      /*! This needs to be called before every load or node start occurs.  This function will
+          check to see if an NVP has been provided (with setNextName) and if so, see if that name matches the actual
+          next name given.  If the names do not match, it will search in the current level of the JSON for that name.
+          If the name is not found, an exception will be thrown.
+
+          Resets the NVP name after called.
+
+          @throws Exception if an expectedName is given and not found */
+      inline bool findName()
+      {
+        return findNameInner(false);
+      }
+
+      //! Searches for the expectedName node if it doesn't match the actualName
+      /*! This needs to be called before every load or node start occurs.  This function will
+          check to see if an NVP has been provided (with setNextName) and if so, see if that name matches the actual
+          next name given.  If the names do not match, it will search in the current level of the JSON for that name.
+          If the name is not found, an exception will be thrown.
+
+          Resets the NVP name after called.
+
+          @throws Exception if an expectedName is given and not found */
+      inline bool findNameInner(bool throwException)
+      {
+        bool res = true;
         // The name an NVP provided with setNextName()
         if( itsNextName )
         {
@@ -533,10 +567,11 @@ namespace cereal
 
           // Do a search if we don't see a name coming up, or if the names don't match
           if( !actualName || std::strcmp( itsNextName, actualName ) != 0 )
-            itsIteratorStack.back().search( itsNextName );
+            res = itsIteratorStack.back().findName( itsNextName, throwException );
         }
 
         itsNextName = nullptr;
+        return res;
       }
 
     public:
@@ -617,6 +652,7 @@ namespace cereal
       void loadValue(std::string & val) { search(); val = itsIteratorStack.back().value().GetString(); ++itsIteratorStack.back(); }
 
       bool isNull() { search(); return itsIteratorStack.back().value().IsNull(); }
+      bool isExist() { return findName(); }
 
       // Special cases to handle various flavors of long, which tend to conflict with
       // the int32_t or int64_t on various compiler/OS combinations.  MSVC doesn't need any of this.
