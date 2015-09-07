@@ -47,8 +47,14 @@ namespace cereal
   /*! @ingroup Utility */
   struct Exception : public std::runtime_error
   {
-    explicit Exception( const std::string & what_ ) : std::runtime_error(what_) {}
-    explicit Exception( const char * what_ ) : std::runtime_error(what_) {}
+    explicit Exception( const std::string & what_ ) : std::runtime_error(what_), _what(what_) {}
+    explicit Exception( const char * what_ ) : std::runtime_error(what_), _what(what_) {}
+
+    virtual void append(const std::string & what_) noexcept { _what += what_; }
+
+    virtual const char *what() const noexcept { return _what.c_str(); }
+  private:
+      std::string _what;
   };
 
   // ######################################################################

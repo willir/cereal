@@ -36,8 +36,10 @@ namespace cereal
 {
   //! An exception thrown when rapidjson fails an internal assertion
   /*! @ingroup Utility */
-  struct RapidJSONException : Exception
-  { RapidJSONException( const char * what_ ) : Exception( what_ ) {} };
+  struct RapidJSONException : Exception {
+    RapidJSONException( const char * what_ ) : Exception( what_ ) {}
+    RapidJSONException( const std::string & what_ ) : Exception( what_ ) {}
+  };
 }
 
 // Override rapidjson assertions to throw exceptions by default
@@ -894,8 +896,13 @@ namespace cereal
   template <class T> inline
   void CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, NameValuePair<T> & t )
   {
-    ar.setNextName( t.name );
-    ar( t.value );
+    try {
+      ar.setNextName(t.name);
+      ar(t.value);
+    } catch(cereal::Exception &e) {
+      e.append(std::string(". In json object with name:") + t.name);
+      throw;
+    }
   }
 
   //! Saving for arithmetic to JSON
