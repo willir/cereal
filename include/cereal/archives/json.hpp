@@ -415,6 +415,15 @@ namespace cereal
         itsReadStream(stream)
       {
         itsDocument.ParseStream<0>(itsReadStream);
+
+        if( itsDocument.IsArray() ) {
+          rapidjson::Value topArray;
+          topArray = itsDocument.Move();  // Move semantics
+
+          itsDocument.SetObject();
+          itsDocument.AddMember("", topArray, itsDocument.GetAllocator());  // Move semantics too
+        }
+
         itsIteratorStack.emplace_back(itsDocument.MemberBegin(), itsDocument.MemberEnd());
       }
 
