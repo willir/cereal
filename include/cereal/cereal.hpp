@@ -324,6 +324,13 @@ namespace cereal
           return id->second;
       }
 
+      //! Serialize specified object as it. I.e. Without addition name and so on.
+      template <class T> inline
+      void serializeRaw( T && t )
+      {
+        self->processImpl( t );
+      }
+
     private:
       //! Serializes data after calling prologue, then calls epilogue
       template <class T> inline
@@ -690,6 +697,13 @@ namespace cereal
       {
         std::uint32_t const stripped_id = id & ~detail::msb_32bit;
         itsPolymorphicTypeMap.insert( {stripped_id, name} );
+      }
+
+      //! Serialize specified object as it. I.e. Without addition name and so on.
+      template <class T> inline
+      void serializeRaw( T && t )
+      {
+        self->processImpl( t );
       }
 
     private:
