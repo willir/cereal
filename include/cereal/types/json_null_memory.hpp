@@ -1,5 +1,5 @@
-#ifndef CEREAL_TYPES_JSON_NULL_HPP_
-#define CEREAL_TYPES_JSON_NULL_HPP_
+#ifndef CEREAL_TYPES_JSON_NULL_MEMORY_HPP_
+#define CEREAL_TYPES_JSON_NULL_MEMORY_HPP_
 
 #include <cstddef>
 
@@ -80,4 +80,4 @@ CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, std::unique_ptr<T, D> & ptr )
 
 } // namespace cereal
 
-#endif //CEREAL_TYPES_JSON_NULL_HPP_
+#endif //CEREAL_TYPES_JSON_NULL_MEMORY_HPP_

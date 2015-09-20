@@ -35,41 +35,43 @@
 #include <boost/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 
-#include <cereal/types/json_optional.hpp>
+#include <cereal/types/json_boost.hpp>
 
+using cereal::JsonOptional;
+using cereal::JsonNullable;
+using cereal::make_nvp;
+using std::cerr;
 using std::cout;
 using std::endl;
 using std::unique_ptr;
 using std::string;
+using std::stringstream;
 
-using boost::optional;
+class Name {
+  public:
+    static constexpr char STR1[] = "str1";
+    static constexpr char INT1[] = "int1";
+    static constexpr char OPTIONAL_STR[] = "optional_str1";
+    static constexpr char OPTIONAL_INT[] = "optional_int1";
+    static constexpr char OPTIONAL_STR2[] = "optional_str2";
+    static constexpr char OPTIONAL_INT2[] = "optional_int2";
+    static constexpr char STR2[] = "str2";
+    static constexpr char INT2[] = "int2";
+    static constexpr char STR3[] = "str3";
+    static constexpr char INT3[] = "int3";
+};
 
-using cereal::make_nvp;
-
+template <template <typename> class Cont>
 struct Jsonable {
   public:
-    class Name {
-      public:
-        static constexpr char STR1[] = "str1";
-        static constexpr char INT1[] = "int1";
-        static constexpr char OPTIONAL_STR[] = "optional_str1";
-        static constexpr char OPTIONAL_INT[] = "optional_int1";
-        static constexpr char OPTIONAL_STR2[] = "optional_str2";
-        static constexpr char OPTIONAL_INT2[] = "optional_int2";
-        static constexpr char STR2[] = "str2";
-        static constexpr char INT2[] = "int2";
-        static constexpr char STR3[] = "str3";
-        static constexpr char INT3[] = "int3";
-    };
-
     string str1;
     int int1 = 0;
-    optional<string> optionalStr;
-    optional<int> optionalInt;
+    Cont<string> optionalStr;
+    Cont<int> optionalInt;
     string str2;
-    optional<string> optionalStr2;
+    Cont<string> optionalStr2;
     int int2 = 0;
-    optional<int> optionalInt2;
+    Cont<int> optionalInt2;
     string str3;
     int int3 = 0;
 
@@ -102,7 +104,8 @@ struct Jsonable {
     }
 };
 
-inline std::ostream &operator<<(std::ostream &os, const Jsonable &obj) {
+template <template <typename> class Cont>
+inline std::ostream &operator<<(std::ostream &os, const Jsonable<Cont> &obj) {
   os << "{ "
      << obj.str1 << ";"
      << obj.int1 << ";"
@@ -118,7 +121,8 @@ inline std::ostream &operator<<(std::ostream &os, const Jsonable &obj) {
   return os;
 }
 
-inline bool operator==(const Jsonable &lhs, const Jsonable &rhs) {
+template <template <typename> class Cont>
+inline bool operator==(const Jsonable<Cont> &lhs, const Jsonable<Cont> &rhs) {
     if(lhs.optionalStr != rhs.optionalStr) return false;
     if(lhs.optionalInt != rhs.optionalInt) return false;
     if(lhs.optionalStr2 != rhs.optionalStr2) return false;
@@ -126,25 +130,43 @@ inline bool operator==(const Jsonable &lhs, const Jsonable &rhs) {
     return lhs.optionalInt2 == rhs.optionalInt2;
 }
 
-constexpr char Jsonable::Name::STR1[];
-constexpr char Jsonable::Name::INT1[];
-constexpr char Jsonable::Name::OPTIONAL_STR[];
-constexpr char Jsonable::Name::OPTIONAL_INT[];
-constexpr char Jsonable::Name::OPTIONAL_STR2[];
-constexpr char Jsonable::Name::OPTIONAL_INT2[];
-constexpr char Jsonable::Name::STR2[];
-constexpr char Jsonable::Name::INT2[];
-constexpr char Jsonable::Name::STR3[];
-constexpr char Jsonable::Name::INT3[];
+constexpr char Name::STR1[];
+constexpr char Name::INT1[];
+constexpr char Name::OPTIONAL_STR[];
+constexpr char Name::OPTIONAL_INT[];
+constexpr char Name::OPTIONAL_STR2[];
+constexpr char Name::OPTIONAL_INT2[];
+constexpr char Name::STR2[];
+constexpr char Name::INT2[];
+constexpr char Name::STR3[];
+constexpr char Name::INT3[];
 
-BOOST_AUTO_TEST_CASE( json_optional_output )
-{
-  typedef Jsonable::Name Name;
-
+template <template <typename> class Cont>
+static void testInput() {
   const string strVal = "someString";
   const int intVal = 2;
 
-  Jsonable objOut("someString", 2);
+  Jsonable<Cont> objOut(strVal, intVal);
+
+  std::stringstream ss;
+  {
+    cereal::JSONOutputArchive arOut(ss);
+    objOut.serialize(arOut);
+  }
+
+  Jsonable<Cont> objIn;
+  cereal::JSONInputArchive arIn(ss);
+  objIn.serialize(arIn);
+
+  BOOST_CHECK_EQUAL(objOut, objIn);
+}
+
+BOOST_AUTO_TEST_CASE( json_optional_output )
+{
+  const string strVal = "someString";
+  const int intVal = 2;
+
+  Jsonable<JsonOptional> objOut("someString", 2);
 
   std::stringstream ss;
   {
@@ -182,10 +204,15 @@ BOOST_AUTO_TEST_CASE( json_optional_output )
 
 BOOST_AUTO_TEST_CASE( json_optional_input )
 {
+  testInput<JsonOptional>();
+}
+
+BOOST_AUTO_TEST_CASE( json_nullable_output )
+{
   const string strVal = "someString";
   const int intVal = 2;
 
-  Jsonable objOut(strVal, intVal);
+  Jsonable<cereal::JsonNullable> objOut("someString", 2);
 
   std::stringstream ss;
   {
@@ -193,9 +220,89 @@ BOOST_AUTO_TEST_CASE( json_optional_input )
     objOut.serialize(arOut);
   }
 
-  Jsonable objIn;
-  cereal::JSONInputArchive arIn(ss);
-  objIn.serialize(arIn);
+  rapidjson::Document doc;
+  doc.Parse(ss.str().c_str());
 
-  BOOST_CHECK_EQUAL(objOut, objIn);
+  BOOST_CHECK(doc[Name::STR1].IsString());
+  BOOST_CHECK(doc[Name::INT1].IsInt());
+  BOOST_CHECK_EQUAL(doc[Name::STR1].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::INT1].GetInt(), intVal);
+
+  BOOST_CHECK(doc[Name::OPTIONAL_STR].IsString());
+  BOOST_CHECK(doc[Name::OPTIONAL_INT].IsInt());
+
+  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_STR].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_INT].GetInt(), intVal);
+
+  BOOST_CHECK(doc[Name::OPTIONAL_STR2].IsNull());
+  BOOST_CHECK(doc[Name::OPTIONAL_INT2].IsNull());
+
+  BOOST_CHECK(doc[Name::STR2].IsString());
+  BOOST_CHECK(doc[Name::INT2].IsInt());
+  BOOST_CHECK_EQUAL(doc[Name::STR2].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::INT2].GetInt(), intVal);
+
+  BOOST_CHECK(doc[Name::STR3].IsString());
+  BOOST_CHECK(doc[Name::INT3].IsInt());
+  BOOST_CHECK_EQUAL(doc[Name::STR3].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::INT3].GetInt(), intVal);
+}
+
+BOOST_AUTO_TEST_CASE( json_nullable_input )
+{
+  testInput<cereal::JsonNullable>();
+}
+
+string serializeOptionalOfNullable(const JsonOptional<cereal::JsonNullable<string>> &obj) {
+  std::stringstream ss;
+  {
+    cereal::JSONOutputArchive arOut(ss);
+    arOut(make_nvp(Name::OPTIONAL_STR2, "asdasd"));
+    arOut(make_nvp(Name::OPTIONAL_STR, obj));
+  }
+  return ss.str();
+}
+
+JsonOptional<cereal::JsonNullable<string>> parseOptionalOfNullable(const string &json) {
+  JsonOptional<cereal::JsonNullable<string>> res;
+  stringstream ss(json);
+
+  cereal::JSONInputArchive arIn(ss);
+  arIn(make_nvp(Name::OPTIONAL_STR, res));
+
+  return res;
+}
+
+BOOST_AUTO_TEST_CASE( json_optional_of_nullable_input )
+{
+  JsonOptional<cereal::JsonNullable<std::string>> obj = boost::none;
+
+  rapidjson::Document doc;
+  string strOpt = serializeOptionalOfNullable(obj);
+  doc.Parse(strOpt.c_str());
+  BOOST_CHECK(!doc.HasMember(Name::OPTIONAL_STR));
+
+  obj = cereal::JsonNullable<std::string>(boost::none);
+  string strNull = serializeOptionalOfNullable(obj);
+  doc.Parse(strNull.c_str());
+  BOOST_CHECK(doc[Name::OPTIONAL_STR].IsNull());
+
+  const string SOME_STR = "some_string_value";
+  obj = cereal::JsonNullable<std::string>(SOME_STR);
+  string str = serializeOptionalOfNullable(obj);
+  doc.Parse(str.c_str());
+  BOOST_CHECK(doc[Name::OPTIONAL_STR].IsString());
+  BOOST_CHECK(doc[Name::OPTIONAL_STR].GetString() == SOME_STR);
+
+  auto objOpt = parseOptionalOfNullable(strOpt);
+  BOOST_CHECK(!objOpt.is_initialized());
+
+  auto objNull = parseOptionalOfNullable(strNull);
+  BOOST_CHECK(objNull.is_initialized());
+  BOOST_CHECK(!objNull->is_initialized());
+
+  auto objStr = parseOptionalOfNullable(str);
+  BOOST_CHECK(objStr.is_initialized());
+  BOOST_CHECK(objStr->is_initialized());
+  BOOST_CHECK(objStr->value() == SOME_STR);
 }

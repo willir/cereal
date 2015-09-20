@@ -32,7 +32,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/utility/string_ref.hpp>
 
-#include <cereal/types/json_null.hpp>
+#include <cereal/types/json_null_memory.hpp>
 
 using std::cout;
 using std::endl;
