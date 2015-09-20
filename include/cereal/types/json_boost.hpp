@@ -281,6 +281,8 @@ epilogue(JSONOutputArchive &ar, const JsonOptNull<T> &obj)
 {
   if (obj.is_initialized()) {
     epilogue(ar, *obj);
+  } else if(obj.isNull()) {
+    ar.saveValue(nullptr);
   }
 }
 

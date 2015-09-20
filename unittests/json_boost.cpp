@@ -162,6 +162,51 @@ static void testInput() {
   BOOST_CHECK_EQUAL(objOut, objIn);
 }
 
+enum class ContType {
+  NULLABLE, OPTIONAL, OPT_NULL
+};
+
+static void checkJson(const string &json, const string &strVal, int intVal, ContType contType) {
+  rapidjson::Document doc;
+  doc.Parse(json.c_str());
+
+  BOOST_CHECK(doc[Name::STR1].IsString());
+  BOOST_CHECK(doc[Name::INT1].IsInt());
+  BOOST_CHECK_EQUAL(doc[Name::STR1].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::INT1].GetInt(), intVal);
+
+  BOOST_CHECK(doc[Name::OPTIONAL_STR].IsString());
+  BOOST_CHECK(doc[Name::OPTIONAL_INT].IsInt());
+
+  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_STR].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_INT].GetInt(), intVal);
+
+  switch (contType) {
+  case ContType::NULLABLE:
+    BOOST_CHECK(doc[Name::OPTIONAL_STR2].IsNull());
+    BOOST_CHECK(doc[Name::OPTIONAL_INT2].IsNull());
+    break;
+  case ContType::OPTIONAL:
+    BOOST_CHECK(!doc.HasMember(Name::OPTIONAL_STR2));
+    BOOST_CHECK(!doc.HasMember(Name::OPTIONAL_INT2));
+    break;
+  case ContType::OPT_NULL:
+    BOOST_CHECK(doc[Name::OPTIONAL_STR2].IsNull());
+    BOOST_CHECK(!doc.HasMember(Name::OPTIONAL_INT2));
+    break;
+  }
+
+  BOOST_CHECK(doc[Name::STR2].IsString());
+  BOOST_CHECK(doc[Name::INT2].IsInt());
+  BOOST_CHECK_EQUAL(doc[Name::STR2].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::INT2].GetInt(), intVal);
+
+  BOOST_CHECK(doc[Name::STR3].IsString());
+  BOOST_CHECK(doc[Name::INT3].IsInt());
+  BOOST_CHECK_EQUAL(doc[Name::STR3].GetString(), strVal);
+  BOOST_CHECK_EQUAL(doc[Name::INT3].GetInt(), intVal);
+}
+
 BOOST_AUTO_TEST_CASE( json_optional_output )
 {
   const string strVal = "someString";
@@ -175,32 +220,7 @@ BOOST_AUTO_TEST_CASE( json_optional_output )
     objOut.serialize(arOut);
   }
 
-  rapidjson::Document doc;
-  doc.Parse(ss.str().c_str());
-
-  BOOST_CHECK(doc[Name::STR1].IsString());
-  BOOST_CHECK(doc[Name::INT1].IsInt());
-  BOOST_CHECK_EQUAL(doc[Name::STR1].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::INT1].GetInt(), intVal);
-
-  BOOST_CHECK(doc[Name::OPTIONAL_STR].IsString());
-  BOOST_CHECK(doc[Name::OPTIONAL_INT].IsInt());
-
-  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_STR].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_INT].GetInt(), intVal);
-
-  BOOST_CHECK(!doc.HasMember(Name::OPTIONAL_STR2));
-  BOOST_CHECK(!doc.HasMember(Name::OPTIONAL_INT2));
-
-  BOOST_CHECK(doc[Name::STR2].IsString());
-  BOOST_CHECK(doc[Name::INT2].IsInt());
-  BOOST_CHECK_EQUAL(doc[Name::STR2].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::INT2].GetInt(), intVal);
-
-  BOOST_CHECK(doc[Name::STR3].IsString());
-  BOOST_CHECK(doc[Name::INT3].IsInt());
-  BOOST_CHECK_EQUAL(doc[Name::STR3].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::INT3].GetInt(), intVal);
+  checkJson(ss.str(), strVal, intVal, ContType::OPTIONAL);
 }
 
 BOOST_AUTO_TEST_CASE( json_optional_input )
@@ -221,37 +241,31 @@ BOOST_AUTO_TEST_CASE( json_nullable_output )
     objOut.serialize(arOut);
   }
 
-  rapidjson::Document doc;
-  doc.Parse(ss.str().c_str());
-
-  BOOST_CHECK(doc[Name::STR1].IsString());
-  BOOST_CHECK(doc[Name::INT1].IsInt());
-  BOOST_CHECK_EQUAL(doc[Name::STR1].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::INT1].GetInt(), intVal);
-
-  BOOST_CHECK(doc[Name::OPTIONAL_STR].IsString());
-  BOOST_CHECK(doc[Name::OPTIONAL_INT].IsInt());
-
-  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_STR].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::OPTIONAL_INT].GetInt(), intVal);
-
-  BOOST_CHECK(doc[Name::OPTIONAL_STR2].IsNull());
-  BOOST_CHECK(doc[Name::OPTIONAL_INT2].IsNull());
-
-  BOOST_CHECK(doc[Name::STR2].IsString());
-  BOOST_CHECK(doc[Name::INT2].IsInt());
-  BOOST_CHECK_EQUAL(doc[Name::STR2].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::INT2].GetInt(), intVal);
-
-  BOOST_CHECK(doc[Name::STR3].IsString());
-  BOOST_CHECK(doc[Name::INT3].IsInt());
-  BOOST_CHECK_EQUAL(doc[Name::STR3].GetString(), strVal);
-  BOOST_CHECK_EQUAL(doc[Name::INT3].GetInt(), intVal);
+  checkJson(ss.str(), strVal, intVal, ContType::NULLABLE);
 }
 
 BOOST_AUTO_TEST_CASE( json_nullable_input )
 {
   testInput<JsonNullable>();
+}
+
+
+BOOST_AUTO_TEST_CASE( json_optnull_output )
+{
+  const string strVal = "someString";
+  const int intVal = 2;
+
+  Jsonable<cereal::JsonOptNull> objOut("someString", 2);
+
+  objOut.optionalStr2 = cereal::jsonNull;
+
+  std::stringstream ss;
+  {
+    cereal::JSONOutputArchive arOut(ss);
+    objOut.serialize(arOut);
+  }
+
+  checkJson(ss.str(), strVal, intVal, ContType::OPT_NULL);
 }
 
 string serializeOptionalOfNullable(const JsonOptional<JsonNullable<string>> &obj) {
@@ -308,7 +322,7 @@ BOOST_AUTO_TEST_CASE( json_optional_of_nullable_input )
   BOOST_CHECK(objStr->value() == SOME_STR);
 }
 
-BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonOptional )
+BOOST_AUTO_TEST_CASE( json_class_JsonOptional )
 {
   JsonOptional<int> intOpt;
   BOOST_CHECK(!intOpt.is_initialized());
@@ -344,7 +358,7 @@ BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonOptional )
   BOOST_CHECK_EQUAL(intOpt2.value_or(4), 2);
 }
 
-BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonNullable )
+BOOST_AUTO_TEST_CASE( json_class_JsonNullable )
 {
   JsonNullable<int> intNull;
   BOOST_CHECK(!intNull.is_initialized());
@@ -380,7 +394,7 @@ BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonNullable )
   BOOST_CHECK_EQUAL(intNull2.value_or(4), 2);
 }
 
-BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonOptNull )
+BOOST_AUTO_TEST_CASE( json_class_JsonOptNull )
 {
   JsonOptNull<int> obj;
   BOOST_CHECK(!obj.is_initialized());
