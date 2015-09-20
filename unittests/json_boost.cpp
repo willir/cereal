@@ -38,6 +38,7 @@
 #include <cereal/types/json_boost.hpp>
 
 using cereal::JsonOptional;
+using cereal::JsonOptNull;
 using cereal::JsonNullable;
 using cereal::make_nvp;
 using std::cerr;
@@ -250,10 +251,10 @@ BOOST_AUTO_TEST_CASE( json_nullable_output )
 
 BOOST_AUTO_TEST_CASE( json_nullable_input )
 {
-  testInput<cereal::JsonNullable>();
+  testInput<JsonNullable>();
 }
 
-string serializeOptionalOfNullable(const JsonOptional<cereal::JsonNullable<string>> &obj) {
+string serializeOptionalOfNullable(const JsonOptional<JsonNullable<string>> &obj) {
   std::stringstream ss;
   {
     cereal::JSONOutputArchive arOut(ss);
@@ -263,8 +264,8 @@ string serializeOptionalOfNullable(const JsonOptional<cereal::JsonNullable<strin
   return ss.str();
 }
 
-JsonOptional<cereal::JsonNullable<string>> parseOptionalOfNullable(const string &json) {
-  JsonOptional<cereal::JsonNullable<string>> res;
+JsonOptional<JsonNullable<string>> parseOptionalOfNullable(const string &json) {
+  JsonOptional<JsonNullable<string>> res;
   stringstream ss(json);
 
   cereal::JSONInputArchive arIn(ss);
@@ -275,7 +276,7 @@ JsonOptional<cereal::JsonNullable<string>> parseOptionalOfNullable(const string 
 
 BOOST_AUTO_TEST_CASE( json_optional_of_nullable_input )
 {
-  JsonOptional<cereal::JsonNullable<std::string>> obj = boost::none;
+  JsonOptional<JsonNullable<std::string>> obj = boost::none;
 
   rapidjson::Document doc;
   string strOpt = serializeOptionalOfNullable(obj);
@@ -305,4 +306,123 @@ BOOST_AUTO_TEST_CASE( json_optional_of_nullable_input )
   BOOST_CHECK(objStr.is_initialized());
   BOOST_CHECK(objStr->is_initialized());
   BOOST_CHECK(objStr->value() == SOME_STR);
+}
+
+BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonOptional )
+{
+  JsonOptional<int> intOpt;
+  BOOST_CHECK(!intOpt.is_initialized());
+  BOOST_CHECK(intOpt.isAbsent());
+  BOOST_CHECK_EQUAL(intOpt.value_or(4), 4);
+
+  intOpt = 3;
+  BOOST_CHECK(intOpt == 3);
+  BOOST_CHECK(intOpt.is_initialized());
+  BOOST_CHECK(!intOpt.isAbsent());
+  BOOST_CHECK_EQUAL(intOpt.value_or(4), 3);
+
+  intOpt = boost::none;
+  BOOST_CHECK(!intOpt.is_initialized());
+  BOOST_CHECK(intOpt.isAbsent());
+  BOOST_CHECK_EQUAL(intOpt.value_or(4), 4);
+
+  intOpt = JsonOptional<int>(3);
+  BOOST_CHECK(intOpt == 3);
+  BOOST_CHECK(intOpt.is_initialized());
+  BOOST_CHECK(!intOpt.isAbsent());
+  BOOST_CHECK_EQUAL(intOpt.value_or(4), 3);
+
+  intOpt = cereal::jsonAbsent;
+  BOOST_CHECK(!intOpt.is_initialized());
+  BOOST_CHECK(intOpt.isAbsent());
+  BOOST_CHECK_EQUAL(intOpt.value_or(4), 4);
+
+  JsonOptional<int> intOpt2(2);
+  BOOST_CHECK(intOpt2 == 2);
+  BOOST_CHECK(intOpt2.is_initialized());
+  BOOST_CHECK(!intOpt2.isAbsent());
+  BOOST_CHECK_EQUAL(intOpt2.value_or(4), 2);
+}
+
+BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonNullable )
+{
+  JsonNullable<int> intNull;
+  BOOST_CHECK(!intNull.is_initialized());
+  BOOST_CHECK(intNull.isNull());
+  BOOST_CHECK_EQUAL(intNull.value_or(4), 4);
+
+  intNull = 3;
+  BOOST_CHECK(intNull == 3);
+  BOOST_CHECK(intNull.is_initialized());
+  BOOST_CHECK(!intNull.isNull());
+  BOOST_CHECK_EQUAL(intNull.value_or(4), 3);
+
+  intNull = boost::none;
+  BOOST_CHECK(!intNull.is_initialized());
+  BOOST_CHECK(intNull.isNull());
+  BOOST_CHECK_EQUAL(intNull.value_or(4), 4);
+
+  intNull = JsonNullable<int>(3);
+  BOOST_CHECK(intNull == 3);
+  BOOST_CHECK(intNull.is_initialized());
+  BOOST_CHECK(!intNull.isNull());
+  BOOST_CHECK_EQUAL(intNull.value_or(4), 3);
+
+  intNull = cereal::jsonNull;
+  BOOST_CHECK(!intNull.is_initialized());
+  BOOST_CHECK(intNull.isNull());
+  BOOST_CHECK_EQUAL(intNull.value_or(4), 4);
+
+  JsonNullable<int> intNull2(2);
+  BOOST_CHECK(intNull2 == 2);
+  BOOST_CHECK(intNull2.is_initialized());
+  BOOST_CHECK(!intNull2.isNull());
+  BOOST_CHECK_EQUAL(intNull2.value_or(4), 2);
+}
+
+BOOST_AUTO_TEST_CASE( json_boost_test_class_JsonOptNull )
+{
+  JsonOptNull<int> obj;
+  BOOST_CHECK(!obj.is_initialized());
+  BOOST_CHECK(!obj.isNull());
+  BOOST_CHECK(obj.isAbsent());
+  BOOST_CHECK_EQUAL(obj.value_or(4), 4);
+
+  obj = 3;
+  BOOST_CHECK(obj == 3);
+  BOOST_CHECK(obj.is_initialized());
+  BOOST_CHECK(!obj.isNull());
+  BOOST_CHECK(!obj.isAbsent());
+  BOOST_CHECK_EQUAL(obj.value_or(4), 3);
+
+  obj = cereal::jsonNull;
+  BOOST_CHECK(!obj.is_initialized());
+  BOOST_CHECK(obj.isNull());
+  BOOST_CHECK(!obj.isAbsent());
+  BOOST_CHECK_EQUAL(obj.value_or(4), 4);
+
+  obj = boost::none;
+  BOOST_CHECK(!obj.is_initialized());
+  BOOST_CHECK(!obj.isNull());
+  BOOST_CHECK(obj.isAbsent());
+  BOOST_CHECK_EQUAL(obj.value_or(4), 4);
+
+  obj = JsonOptNull<int>(3);
+  BOOST_CHECK(obj == 3);
+  BOOST_CHECK(obj.is_initialized());
+  BOOST_CHECK(!obj.isNull());
+  BOOST_CHECK_EQUAL(obj.value_or(4), 3);
+
+  obj = cereal::jsonAbsent;
+  BOOST_CHECK(!obj.is_initialized());
+  BOOST_CHECK(!obj.isNull());
+  BOOST_CHECK(obj.isAbsent());
+  BOOST_CHECK_EQUAL(obj.value_or(4), 4);
+
+  JsonOptNull<int> obj2(2);
+  BOOST_CHECK(obj2 == 2);
+  BOOST_CHECK(obj2.is_initialized());
+  BOOST_CHECK(!obj2.isNull());
+  BOOST_CHECK(!obj2.isAbsent());
+  BOOST_CHECK_EQUAL(obj2.value_or(4), 2);
 }
