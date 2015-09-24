@@ -60,12 +60,23 @@ template<class T>
 class JsonNullable : public boost::optional<T> {
   public:
     JsonNullable(JsonNullT) BOOST_NOEXCEPT : boost::optional<T>(boost::none) { }
-    JsonNullable(const JsonNullable &obj) : boost::optional<T>(obj) { }
-    JsonNullable(JsonNullable &&obj) : boost::optional<T>(std::move(obj)) { }
+    JsonNullable(const JsonNullable &obj) : boost::optional<T>(static_cast<const boost::optional<T>&>(obj)) { }
+    JsonNullable(JsonNullable &&obj) : boost::optional<T>(std::move(static_cast<boost::optional<T>&>(obj))) { }
     INHERIT_BOOST_OPTIONAL_CONSTRUCTOR(JsonNullable)
+
     INHERIT_BOOST_OPTIONAL_ASSIGNEMENT_OPERATOR(JsonNullable)
-    JsonNullable &operator=(const JsonNullable &obj) { boost::optional<T>::operator=(obj); return *this; }
-    JsonNullable &operator=(JsonNullable &&obj) { boost::optional<T>::operator=(std::move(obj)); return *this; }
+
+    JsonNullable &operator=(const JsonNullable &obj)
+    {
+      boost::optional<T>::operator=(static_cast<const boost::optional<T>&>(obj));
+      return *this;
+    }
+
+    JsonNullable &operator=(JsonNullable &&obj)
+    {
+      boost::optional<T>::operator=(static_cast<boost::optional<T>&>(std::move(obj)));
+      return *this;
+    }
 
     bool isNull() const BOOST_NOEXCEPT { return !this->is_initialized(); }
 
@@ -82,13 +93,23 @@ template<class T>
 class JsonOptional : public boost::optional<T> {
   public:
     JsonOptional(JsonAbsentT) BOOST_NOEXCEPT : boost::optional<T>(boost::none) { }
-    JsonOptional(const JsonOptional &obj) : boost::optional<T>(obj) { }
-    JsonOptional(JsonOptional &&obj) : boost::optional<T>(std::move(obj)) { }
+    JsonOptional(const JsonOptional &obj) : boost::optional<T>(static_cast<const boost::optional<T>&>(obj)) { }
+    JsonOptional(JsonOptional &&obj) : boost::optional<T>(std::move(static_cast<boost::optional<T>&>(obj))) { }
     INHERIT_BOOST_OPTIONAL_CONSTRUCTOR(JsonOptional)
 
     INHERIT_BOOST_OPTIONAL_ASSIGNEMENT_OPERATOR(JsonOptional)
-    JsonOptional &operator=(const JsonOptional &obj) { boost::optional<T>::operator=(obj); return *this; }
-    JsonOptional &operator=(JsonOptional &&obj) { boost::optional<T>::operator=(std::move(obj)); return *this; }
+
+    JsonOptional &operator=(const JsonOptional &obj)
+    {
+      boost::optional<T>::operator=(static_cast<const boost::optional<T>&>(obj));
+      return *this;
+    }
+
+    JsonOptional &operator=(JsonOptional &&obj)
+    {
+      boost::optional<T>::operator=(std::move(static_cast<boost::optional<T>&>(obj)));
+      return *this;
+    }
 
     bool isAbsent() const BOOST_NOEXCEPT { return !this->is_initialized(); }
 
@@ -108,15 +129,19 @@ class JsonOptNull : public boost::optional<T> {
     JsonOptNull(JsonNullT) BOOST_NOEXCEPT : boost::optional<T>(boost::none), mIsNull(true) { }
     JsonOptNull(JsonAbsentT) BOOST_NOEXCEPT : boost::optional<T>(boost::none), mIsNull(false) { }
     INHERIT_BOOST_OPTIONAL_CONSTRUCTOR(JsonOptNull)
-    JsonOptNull(const JsonOptNull &obj) : boost::optional<T>(obj), mIsNull(obj.mIsNull) { }
-    JsonOptNull(JsonOptNull &&obj) : boost::optional<T>(std::move(obj)), mIsNull(obj.mIsNull) { }
+    JsonOptNull(const JsonOptNull &obj)
+            : boost::optional<T>(static_cast<const boost::optional<T>&>(obj)),
+              mIsNull(obj.mIsNull) { }
+    JsonOptNull(JsonOptNull &&obj)
+            : boost::optional<T>(std::move(static_cast<boost::optional<T>&>(obj))),
+              mIsNull(obj.mIsNull) { }
 
     INHERIT_BOOST_OPTIONAL_ASSIGNEMENT_OPERATOR(JsonOptNull)
 
     template <typename U>
     JsonOptNull &operator=(const JsonOptNull<U> &obj)
     {
-      boost::optional<T>::operator=(obj);
+      boost::optional<T>::operator=(static_cast<const boost::optional<U>&>(obj));
       mIsNull = obj.mIsNull;
       return *this;
     }
@@ -124,21 +149,21 @@ class JsonOptNull : public boost::optional<T> {
     template <typename U>
     JsonOptNull &operator=(JsonOptNull<U> &&obj)
     {
-      boost::optional<T>::operator=(std::move(obj));
+      boost::optional<T>::operator=(std::move(static_cast<boost::optional<U>&>(obj)));
       mIsNull = obj.mIsNull;
       return *this;
     }
 
     JsonOptNull &operator=(const JsonOptNull &obj)
     {
-      boost::optional<T>::operator=(obj);
+      boost::optional<T>::operator=(static_cast<const boost::optional<T>&>(obj));
       mIsNull = obj.mIsNull;
       return *this;
     }
 
     JsonOptNull &operator=(JsonOptNull &&obj)
     {
-      boost::optional<T>::operator=(std::move(obj));
+      boost::optional<T>::operator=(std::move(static_cast<boost::optional<T>&>(obj)));
       mIsNull = obj.mIsNull;
       return *this;
     }
