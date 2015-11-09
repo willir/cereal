@@ -208,6 +208,79 @@ boostOptionalToEmpty( C<D> & obj ) {
   obj = C<D>(D{});
 }
 
+//boost::optional it is the same as JsonNullable
+//=================================================================================
+
+// JSONOutputArchive for boost::optional:
+//----------------------------------------
+
+template <class T> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+prologue( JSONOutputArchive & ar, const boost::optional<T> & obj )
+{
+    if(obj.is_initialized()) {
+        prologue(ar, *obj);
+    } else {
+        ar.writeName();
+    }
+}
+
+template <class T> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+epilogue( JSONOutputArchive & ar, const boost::optional<T> & obj )
+{
+    if(obj.is_initialized()) {
+        epilogue(ar, *obj);
+    }
+}
+
+template <class T> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+CEREAL_SAVE_FUNCTION_NAME( JSONOutputArchive & ar, const boost::optional<T> & obj )
+{
+    if (obj.is_initialized()) {
+        ar.serializeRaw(*obj);
+    } else {
+        ar.saveValue(nullptr);
+    }
+}
+
+// JSONInputArchive for JsonNullable:
+//----------------------------------------
+
+template <class T> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+prologue( JSONInputArchive & ar, boost::optional<T> & obj )
+{
+    if (!ar.isNull()) {
+        if (!obj) boostOptionalToEmpty(obj);
+        prologue(ar, *obj);
+    }
+}
+
+template <class T> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+epilogue( JSONInputArchive & ar, boost::optional<T> & obj )
+{
+    if(obj.is_initialized()) {
+        epilogue(ar, *obj);
+    }
+}
+
+template <class T> inline
+typename std::enable_if<!std::is_polymorphic<T>::value, void>::type
+CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, boost::optional<T> & obj )
+{
+    if (!ar.isNull()) {
+        if (!obj.is_initialized()) {
+            boostOptionalToEmpty(obj);
+        }
+        ar.serializeRaw(*obj);
+    } else {
+        obj = boost::none;
+    }
+}
+
 //cereal::JsonNullable
 //=================================================================================
 
