@@ -417,6 +417,7 @@ namespace cereal
         itsDocument.ParseStream<0>(itsReadStream);
 
         if( itsDocument.IsArray() ) {
+          isArray_ = true;
           rapidjson::Value topArray;
           topArray = itsDocument.Move();  // Move semantics
 
@@ -425,6 +426,11 @@ namespace cereal
         }
 
         itsIteratorStack.emplace_back(itsDocument.MemberBegin(), itsDocument.MemberEnd());
+      }
+
+      bool isArray() const
+      {
+        return isArray_;
       }
 
       //! Loads some binary data, encoded as a base64 string
@@ -740,6 +746,7 @@ namespace cereal
       ReadStream itsReadStream;               //!< Rapidjson write stream
       std::vector<Iterator> itsIteratorStack; //!< 'Stack' of rapidJSON iterators
       rapidjson::Document itsDocument;        //!< Rapidjson document
+      bool isArray_ = false;
   };
 
   // ######################################################################
