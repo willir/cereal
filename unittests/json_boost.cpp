@@ -394,8 +394,7 @@ BOOST_AUTO_TEST_CASE( json_class_JsonNullable )
   BOOST_CHECK_EQUAL(intNull2.value_or(4), 2);
 }
 
-BOOST_AUTO_TEST_CASE( json_class_JsonOptNull )
-{
+BOOST_AUTO_TEST_CASE( json_class_JsonOptNull ) {
   JsonOptNull<int> obj;
   BOOST_CHECK(!obj.is_initialized());
   BOOST_CHECK(!obj.isNull());
@@ -439,4 +438,117 @@ BOOST_AUTO_TEST_CASE( json_class_JsonOptNull )
   BOOST_CHECK(!obj2.isNull());
   BOOST_CHECK(!obj2.isAbsent());
   BOOST_CHECK_EQUAL(obj2.value_or(4), 2);
+}
+
+BOOST_AUTO_TEST_CASE( json_class_inter_copy )
+{
+  {
+    JsonOptNull<int> obj(cereal::jsonNull);
+    BOOST_CHECK(obj.toNullable().isNull());
+
+    JsonNullable<int> obj2(std::move(obj));
+    BOOST_CHECK(obj2.isNull());
+  }
+
+  {
+    JsonOptNull<int> obj(cereal::jsonAbsent);
+    BOOST_CHECK(obj.toOptional().isAbsent());
+
+    JsonOptional<int> obj2(std::move(obj));
+    BOOST_CHECK(obj2.isAbsent());
+  }
+
+  {
+    JsonOptional<int> obj(cereal::jsonAbsent);
+
+    JsonOptNull<int> obj2(obj);
+    BOOST_CHECK(obj2.isAbsent());
+    BOOST_CHECK(obj.isAbsent());
+
+    JsonOptNull<int> obj3(std::move(obj));
+    BOOST_CHECK(obj3.isAbsent());
+  }
+
+  {
+    JsonNullable<int> obj(cereal::jsonNull);
+
+    JsonOptNull<int> obj2(obj);
+    BOOST_CHECK(obj2.isNull());
+    BOOST_CHECK(obj.isNull());
+
+    JsonOptNull<int> obj3(std::move(obj));
+    BOOST_CHECK(obj3.isNull());
+  }
+
+  {
+    JsonOptNull<int> obj = 5;
+    BOOST_CHECK_EQUAL(obj.toNullable().value_or(4), 5);
+
+    JsonNullable<int> obj2 = cereal::jsonNull;
+    BOOST_CHECK(obj2.isNull());
+
+    obj2 = obj;
+    BOOST_CHECK_EQUAL(obj.value_or(4), 5);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+
+    obj2 = 3;
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 3);
+
+    obj2 = std::move(obj);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+  }
+
+  {
+    JsonOptNull<int> obj = 5;
+    BOOST_CHECK_EQUAL(obj.toOptional().value_or(4), 5);
+
+    JsonOptional<int> obj2 = cereal::jsonAbsent;
+    BOOST_CHECK(obj2.isAbsent());
+
+    obj2 = obj;
+    BOOST_CHECK_EQUAL(obj.value_or(4), 5);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+
+    obj2 = 3;
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 3);
+
+    obj2 = std::move(obj);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+  }
+
+  {
+    JsonNullable<int> obj = 5;
+    BOOST_CHECK_EQUAL(obj.value_or(4), 5);
+
+    JsonOptNull<int> obj2 = cereal::jsonAbsent;
+    BOOST_CHECK(obj2.isAbsent());
+
+    obj2 = obj;
+    BOOST_CHECK_EQUAL(obj.value_or(4), 5);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+
+    obj2 = 3;
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 3);
+
+    obj2 = std::move(obj);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+  }
+
+  {
+    JsonOptional<int> obj = 5;
+    BOOST_CHECK_EQUAL(obj.value_or(4), 5);
+
+    JsonOptNull<int> obj2 = cereal::jsonNull;
+    BOOST_CHECK(obj2.isNull());
+
+    obj2 = obj;
+    BOOST_CHECK_EQUAL(obj.value_or(4), 5);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+
+    obj2 = 3;
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 3);
+
+    obj2 = std::move(obj);
+    BOOST_CHECK_EQUAL(obj2.value_or(4), 5);
+  }
 }
