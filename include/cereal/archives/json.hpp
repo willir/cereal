@@ -634,6 +634,7 @@ namespace cereal
 
       //! Loads a value from the current node - small signed overload
       template <class T, traits::EnableIf<std::is_signed<T>::value,
+                                          !std::is_same<time_t, T>::value,
                                           sizeof(T) < sizeof(int64_t)> = traits::sfinae> inline
       void loadValue(T & val)
       {
@@ -645,6 +646,7 @@ namespace cereal
 
       //! Loads a value from the current node - small unsigned overload
       template <class T, traits::EnableIf<std::is_unsigned<T>::value,
+                                          !std::is_same<time_t, T>::value,
                                           sizeof(T) < sizeof(uint64_t),
                                           !std::is_same<bool, T>::value> = traits::sfinae> inline
       void loadValue(T & val)
