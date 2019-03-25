@@ -36,6 +36,7 @@
 #include <memory>
 #include <unordered_map>
 #include <stdexcept>
+#include <string_view>
 
 #include <cereal/macros.hpp>
 #include <cereal/details/static_object.hpp>
@@ -164,9 +165,9 @@ namespace cereal
                    only pass r-values in cases where this makes sense, such as the result of some
                    size() call.
           @internal */
-      NameValuePair( char const * n, T && v ) : name(n), value(std::forward<T>(v)) {}
+      NameValuePair( std::string_view n, T && v ) : name(n), value(std::forward<T>(v)) {}
 
-      char const * name;
+      std::string_view name;
       Type value;
   };
 
@@ -178,7 +179,7 @@ namespace cereal
   std::enable_if<std::is_same<Archive, ::cereal::BinaryInputArchive>::value ||
                  std::is_same<Archive, ::cereal::BinaryOutputArchive>::value,
   T && >::type
-  make_nvp( const char *, T && value )
+  make_nvp( std::string_view, T && value )
   {
     return std::forward<T>(value);
   }
@@ -191,7 +192,7 @@ namespace cereal
   std::enable_if<!std::is_same<Archive, ::cereal::BinaryInputArchive>::value &&
                  !std::is_same<Archive, ::cereal::BinaryOutputArchive>::value,
   NameValuePair<T> >::type
-  make_nvp( const char * name, T && value)
+  make_nvp( std::string_view name, T && value)
   {
     return {name, std::forward<T>(value)};
   }

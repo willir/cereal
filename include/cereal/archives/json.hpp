@@ -163,7 +163,7 @@ namespace cereal
       //! Saves some binary data, encoded as a base64 string, with an optional name
       /*! This will create a new node, optionally named, and insert a value that consists of
           the data encoded as a base64 string */
-      void saveBinaryValue( const void * data, size_t size, const char * name = nullptr )
+      void saveBinaryValue( const void * data, size_t size, std::string_view name = {} )
       {
         setNextName( name );
         writeName();
@@ -219,7 +219,7 @@ namespace cereal
       }
 
       //! Sets the name for the next node created with startNode
-      void setNextName( const char * name )
+      void setNextName( std::string_view name )
       {
         itsNextName = name;
       }
@@ -238,10 +238,12 @@ namespace cereal
       void saveValue(double d)              { itsWriter.Double(d);                                                       }
       //! Saves a string to the current node
       void saveValue(std::string const & s) { itsWriter.String(s.c_str(), static_cast<rapidjson::SizeType>( s.size() )); }
+      //! Saves a string_view to the current node
+      void saveValue(std::string_view s)    { itsWriter.String(s.data(), static_cast<rapidjson::SizeType>( s.size() ));  }
       //! Saves a const char * to the current node
       void saveValue(char const * s)        { itsWriter.String(s);                                                       }
-      //! Saves a null to the current node
-      void saveValue(std::nullptr_t)        { itsWriter.Null();                                                         }
+      //! Saves a nullptr to the current node
+      void saveValue(std::nullptr_t)        { itsWriter.Null();                                                          }
 
     private:
       // Some compilers/OS have difficulty disambiguating the above for various flavors of longs, so we provide
@@ -355,7 +357,7 @@ namespace cereal
     private:
       WriteStream itsWriteStream;          //!< Rapidjson write stream
       JSONWriter itsWriter;                //!< Rapidjson writer
-      char const * itsNextName;            //!< The next name
+      std::string_view itsNextName;        //!< The next name
       std::stack<uint32_t> itsNameCounter; //!< Counter for creating unique names for unnamed nodes
       std::stack<NodeType> itsNodeStack;
   }; // JSONOutputArchive
@@ -441,7 +443,7 @@ namespace cereal
 
           Note that this follows the same ordering rules specified in the class description in regards
           to loading in/out of order */
-      void loadBinaryValue( void * data, size_t size, const char * name = nullptr )
+      void loadBinaryValue( void * data, size_t size, std::string_view name = {} )
       {
         itsNextName = name;
 
@@ -509,15 +511,13 @@ namespace cereal
           //! Adjust our position such that we are at the node with the given name
           /*! @throws Exception if no such named node exists and throwException == true */
           /*! @return false if no such named node exists */
-          inline bool findName( const char * searchName, bool throwException )
+          inline bool findName( std::string_view searchName, bool throwException )
           {
-            const auto len = std::strlen( searchName );
             size_t index = 0;
             for( auto it = itsMemberItBegin; it != itsMemberItEnd; ++it, ++index )
             {
               const auto currentName = it->name.GetString();
-              if( ( std::strncmp( searchName, currentName, len ) == 0 ) &&
-                  ( std::strlen( currentName ) == len ) )
+              if( searchName == currentName )
               {
                 itsIndex = index;
                 return true;
@@ -579,17 +579,17 @@ namespace cereal
       {
         bool res = true;
         // The name an NVP provided with setNextName()
-        if( itsNextName )
+        if( !itsNextName.empty() )
         {
           // The actual name of the current node
-          auto const actualName = itsIteratorStack.back().name();
+          const char *const actualName = itsIteratorStack.back().name();
 
           // Do a search if we don't see a name coming up, or if the names don't match
-          if( !actualName || std::strcmp( itsNextName, actualName ) != 0 )
+          if( actualName == nullptr || itsNextName != actualName )
             res = itsIteratorStack.back().findName( itsNextName, throwException );
         }
 
-        itsNextName = nullptr;
+        itsNextName = {};
         return res;
       }
 
@@ -629,7 +629,7 @@ namespace cereal
       }
 
       //! Sets the name for the next node created with startNode
-      void setNextName( const char * name )
+      void setNextName( std::string_view name )
       {
         itsNextName = name;
       }
@@ -746,7 +746,7 @@ namespace cereal
       //! @}
 
     private:
-      const char * itsNextName;               //!< Next name set by NVP
+      std::string_view itsNextName;           //!< Next name set by NVP
       ReadStream itsReadStream;               //!< Rapidjson write stream
       std::vector<Iterator> itsIteratorStack; //!< 'Stack' of rapidJSON iterators
       rapidjson::Document itsDocument;        //!< Rapidjson document
@@ -920,7 +920,7 @@ namespace cereal
       ar.setNextName(t.name);
       ar(t.value);
     } catch(cereal::Exception &e) {
-      e.append(std::string(". In json object with name:") + t.name);
+      e.append(". In json object with name:" + std::string(t.name));
       throw;
     }
   }

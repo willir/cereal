@@ -14,7 +14,7 @@ static const std::string MOCK_STR;
 }} // namespace internal::json_str_view
 
 inline void CEREAL_SAVE_FUNCTION_NAME(JSONOutputArchive &ar, std::string_view obj) {
-    ar.saveValue(obj.data());
+    ar.saveValue(obj);
 }
 
 inline void prologue(JSONOutputArchive &ar, std::string_view) {

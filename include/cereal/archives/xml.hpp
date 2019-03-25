@@ -169,7 +169,7 @@ namespace cereal
       /*! This can be called directly by users and it will automatically create a child node for
           the current XML node, populate it with a base64 encoded string, and optionally name
           it.  The node will be finished after it has been populated.  */
-      void saveBinaryValue( const void * data, size_t size, const char * name = nullptr )
+      void saveBinaryValue( const void * data, size_t size, std::string_view name = {} )
       {
         itsNodes.top().name = name;
 
@@ -217,7 +217,7 @@ namespace cereal
       }
 
       //! Sets the name for the next node created with startNode
-      void setNextName( const char * name )
+      void setNextName( std::string_view name )
       {
         itsNodes.top().name = name;
       }
@@ -291,7 +291,7 @@ namespace cereal
       struct NodeInfo
       {
         NodeInfo( rapidxml::xml_node<> * n = nullptr,
-                  const char * nm = nullptr ) :
+                  std::string_view nm = {} ) :
           node( n ),
           counter( 0 ),
           name( nm )
@@ -299,7 +299,7 @@ namespace cereal
 
         rapidxml::xml_node<> * node; //!< A pointer to this node
         size_t counter;              //!< The counter for naming child nodes
-        const char * name;           //!< The name for the next child node
+        std::string_view name;       //!< The name for the next child node
 
         //! Gets the name for the next child node created from this node
         /*! The name will be automatically generated using the counter if
@@ -307,11 +307,11 @@ namespace cereal
             set, that name will be returned only once */
         std::string getValueName()
         {
-          if( name )
+          if( !name.empty() )
           {
             auto n = name;
-            name = nullptr;
-            return {n};
+            name = {};
+            return std::string(n);
           }
           else
             return "value" + std::to_string( counter++ ) + "\0";
@@ -412,7 +412,7 @@ namespace cereal
 
           Note that this follows the same ordering rules specified in the class description in regards
           to loading in/out of order */
-      void loadBinaryValue( void * data, size_t size, const char * name = nullptr )
+      void loadBinaryValue( void * data, size_t size, std::string_view name = {} )
       {
         setNextName( name );
         startNode();
@@ -486,7 +486,7 @@ namespace cereal
       }
 
       //! Sets the name for the next node created with startNode
-      void setNextName( const char * name )
+      void setNextName( std::string_view name )
       {
         itsNodes.top().name = name;
       }
@@ -678,17 +678,16 @@ namespace cereal
         //! Searches for a child with the given name in this node
         /*! @param searchName The name to search for (must be null terminated)
             @return The node if found, nullptr otherwise */
-        rapidxml::xml_node<> * search( const char * searchName )
+        rapidxml::xml_node<> * search( std::string_view searchName )
         {
-          if( searchName )
+          if( !searchName.empty() )
           {
             size_t new_size = XMLInputArchive::getNumChildren( node );
-            const size_t name_size = rapidxml::internal::measure( searchName );
 
             for( auto new_child = node->first_node(); new_child != nullptr; new_child = new_child->next_sibling() )
             {
-              if( rapidxml::internal::compare( new_child->name(), new_child->name_size(), searchName, name_size, true ) )
-              {
+              std::string_view new_child_name(new_child->name(), new_child->name_size());
+              if (new_child_name == searchName) {
                 size = new_size;
                 child = new_child;
 
@@ -704,7 +703,7 @@ namespace cereal
         rapidxml::xml_node<> * node;  //!< A pointer to this node
         rapidxml::xml_node<> * child; //!< A pointer to its current child
         size_t size;                  //!< The remaining number of children for this node
-        const char * name;            //!< The NVP name for next next child node
+        std::string_view name;        //!< The NVP name for next next child node
       }; // NodeInfo
 
       //! @}

@@ -38,10 +38,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-
-#if __cplusplus >= 201703L
 #include <string_view>
-#endif
 
 #include <cereal/macros.hpp>
 #include <cereal/details/traits.hpp>
@@ -50,26 +47,6 @@
 
 namespace cereal
 {
-  // ######################################################################
-  //! Creates a name value pair
-  /*! @relates NameValuePair
-      @ingroup Utility */
-  template <class T> inline
-  NameValuePair<T> make_nvp( std::string const & name, T && value )
-  {
-    return {name.c_str(), std::forward<T>(value)};
-  }
-
-  //! Creates a name value pair
-  /*! @relates NameValuePair
-      @ingroup Utility */
-  template <class T> inline
-  NameValuePair<T> make_nvp( const char * name, T && value )
-  {
-    return {name, std::forward<T>(value)};
-  }
-
-#if __cplusplus >= 201703L
 
   //! Creates a name value pair
   /*! @relates NameValuePair
@@ -77,10 +54,8 @@ namespace cereal
   template <class T> inline
   NameValuePair<T> make_nvp( std::string_view name, T && value )
   {
-    return {name.data(), std::forward<T>(value)};
+    return {name, std::forward<T>(value)};
   }
-
-#endif
 
   //! Creates a name value pair for the variable T with the same name as the variable
   /*! @relates NameValuePair
