@@ -51,6 +51,8 @@ prologue( JSONInputArchive & ar, std::unique_ptr<T, D> & ptr )
   if (!ar.isNull()) {
     if (!ptr) ptr.reset(new T());
     prologue(ar, *ptr);
+  } else {
+    ptr.reset(nullptr);
   }
 }
 
@@ -60,7 +62,7 @@ template <class T, class D> inline
 typename std::enable_if<!std::is_abstract<T>::value, void>::type
 epilogue( JSONInputArchive & ar, std::unique_ptr<T, D> & ptr )
 {
-  if(ptr) {
+  if (ptr) {
     epilogue(ar, *ptr);
   }
 }
@@ -70,11 +72,8 @@ template <class T, class D> inline
 typename std::enable_if<!std::is_abstract<T>::value, void>::type
 CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, std::unique_ptr<T, D> & ptr )
 {
-  if (!ar.isNull()) {
-    if (!ptr) ptr.reset(new T());
+  if (ptr != nullptr) {
     ar.serializeRaw(*ptr);
-  } else {
-    ptr.reset(nullptr);
   }
 }
 
