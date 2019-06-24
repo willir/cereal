@@ -145,8 +145,7 @@ namespace cereal
       JSONOutputArchive(std::ostream & stream, Options const & options = Options::Default() ) :
         OutputArchive<JSONOutputArchive>(this),
         itsWriteStream(stream),
-        itsWriter(itsWriteStream),
-        itsNextName(nullptr)
+        itsWriter(itsWriteStream)
       {
         itsWriter.SetIndent( options.itsIndentChar, options.itsIndentLength );
         itsNameCounter.push(0);
@@ -334,7 +333,7 @@ namespace cereal
         // Array types do not output names
         if(nodeType == NodeType::InArray) return;
 
-        if(itsNextName == nullptr)
+        if(itsNextName.empty())
         {
           std::string name = "value" + std::to_string( itsNameCounter.top()++ ) + "\0";
           saveValue(name);
@@ -342,7 +341,7 @@ namespace cereal
         else
         {
           saveValue(itsNextName);
-          itsNextName = nullptr;
+          itsNextName = {};
         }
       }
 
@@ -415,7 +414,6 @@ namespace cereal
       /*! @param stream The stream to read from */
       JSONInputArchive(std::istream & stream) :
         InputArchive<JSONInputArchive>(this),
-        itsNextName( nullptr ),
         itsReadStream(stream)
       {
         itsDocument.ParseStream<0>(itsReadStream);
@@ -455,7 +453,7 @@ namespace cereal
           throw Exception("Decoded binary data size does not match specified size");
 
         std::memcpy( data, decoded.data(), decoded.size() );
-        itsNextName = nullptr;
+        itsNextName = {};
       };
 
     private:
