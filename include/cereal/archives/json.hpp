@@ -93,7 +93,11 @@ namespace cereal
     enum class NodeType { StartObject, InObject, StartArray, InArray };
 
     typedef rapidjson::GenericWriteStream WriteStream;
+#ifdef CEREAL_NON_PRETTY_JSON
+    typedef rapidjson::Writer<WriteStream> JSONWriter;
+#else
     typedef rapidjson::PrettyWriter<WriteStream> JSONWriter;
+#endif
 
     public:
       /*! @name Common Functionality
@@ -147,7 +151,9 @@ namespace cereal
         itsWriteStream(stream),
         itsWriter(itsWriteStream)
       {
+#ifndef CEREAL_NON_PRETTY_JSON
         itsWriter.SetIndent( options.itsIndentChar, options.itsIndentLength );
+#endif
         itsNameCounter.push(0);
         itsNodeStack.push(NodeType::StartObject);
       }
