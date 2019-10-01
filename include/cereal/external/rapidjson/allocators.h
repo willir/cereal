@@ -12,12 +12,12 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the 
 // specific language governing permissions and limitations under the License.
 
-#ifndef RAPIDJSON_ALLOCATORS_H_
-#define RAPIDJSON_ALLOCATORS_H_
+#ifndef CEREAL_RAPIDJSON_ALLOCATORS_H_
+#define CEREAL_RAPIDJSON_ALLOCATORS_H_
 
 #include "rapidjson.h"
 
-RAPIDJSON_NAMESPACE_BEGIN
+CEREAL_RAPIDJSON_NAMESPACE_BEGIN
 
 ///////////////////////////////////////////////////////////////////////////////
 // Allocator
@@ -125,8 +125,8 @@ public:
     MemoryPoolAllocator(void *buffer, size_t size, size_t chunkSize = kDefaultChunkCapacity, BaseAllocator* baseAllocator = 0) :
         chunkHead_(0), chunk_capacity_(chunkSize), userBuffer_(buffer), baseAllocator_(baseAllocator), ownBaseAllocator_(0)
     {
-        RAPIDJSON_ASSERT(buffer != 0);
-        RAPIDJSON_ASSERT(size > sizeof(ChunkHeader));
+        CEREAL_RAPIDJSON_ASSERT(buffer != 0);
+        CEREAL_RAPIDJSON_ASSERT(size > sizeof(ChunkHeader));
         chunkHead_ = reinterpret_cast<ChunkHeader*>(buffer);
         chunkHead_->capacity = size - sizeof(ChunkHeader);
         chunkHead_->size = 0;
@@ -138,7 +138,7 @@ public:
     */
     ~MemoryPoolAllocator() {
         Clear();
-        RAPIDJSON_DELETE(ownBaseAllocator_);
+        CEREAL_RAPIDJSON_DELETE(ownBaseAllocator_);
     }
 
     //! Deallocates all memory chunks, excluding the user-supplied buffer.
@@ -177,11 +177,12 @@ public:
         if (!size)
             return NULL;
 
-        size = RAPIDJSON_ALIGN(size);
+        size = CEREAL_RAPIDJSON_ALIGN(size);
         if (chunkHead_ == 0 || chunkHead_->size + size > chunkHead_->capacity)
-            AddChunk(chunk_capacity_ > size ? chunk_capacity_ : size);
+            if (!AddChunk(chunk_capacity_ > size ? chunk_capacity_ : size))
+                return NULL;
 
-        void *buffer = reinterpret_cast<char *>(chunkHead_ + 1) + chunkHead_->size;
+        void *buffer = reinterpret_cast<char *>(chunkHead_) + CEREAL_RAPIDJSON_ALIGN(sizeof(ChunkHeader)) + chunkHead_->size;
         chunkHead_->size += size;
         return buffer;
     }
@@ -194,14 +195,16 @@ public:
         if (newSize == 0)
             return NULL;
 
+        originalSize = CEREAL_RAPIDJSON_ALIGN(originalSize);
+        newSize = CEREAL_RAPIDJSON_ALIGN(newSize);
+
         // Do not shrink if new size is smaller than original
         if (originalSize >= newSize)
             return originalPtr;
 
         // Simply expand it if it is the last allocation and there is sufficient space
-        if (originalPtr == (char *)(chunkHead_ + 1) + chunkHead_->size - originalSize) {
+        if (originalPtr == reinterpret_cast<char *>(chunkHead_) + CEREAL_RAPIDJSON_ALIGN(sizeof(ChunkHeader)) + chunkHead_->size - originalSize) {
             size_t increment = static_cast<size_t>(newSize - originalSize);
-            increment = RAPIDJSON_ALIGN(increment);
             if (chunkHead_->size + increment <= chunkHead_->capacity) {
                 chunkHead_->size += increment;
                 return originalPtr;
@@ -209,11 +212,13 @@ public:
         }
 
         // Realloc process: allocate and copy memory, do not free original buffer.
-        void* newBuffer = Malloc(newSize);
-        RAPIDJSON_ASSERT(newBuffer != 0);   // Do not handle out-of-memory explicitly.
-        if (originalSize)
-            std::memcpy(newBuffer, originalPtr, originalSize);
-        return newBuffer;
+        if (void* newBuffer = Malloc(newSize)) {
+            if (originalSize)
+                std::memcpy(newBuffer, originalPtr, originalSize);
+            return newBuffer;
+        }
+        else
+            return NULL;
     }
 
     //! Frees a memory block (concept Allocator)
@@ -227,15 +232,20 @@ private:
 
     //! Creates a new chunk.
     /*! \param capacity Capacity of the chunk in bytes.
+        \return true if success.
     */
-    void AddChunk(size_t capacity) {
+    bool AddChunk(size_t capacity) {
         if (!baseAllocator_)
-            ownBaseAllocator_ = baseAllocator_ = RAPIDJSON_NEW(BaseAllocator());
-        ChunkHeader* chunk = reinterpret_cast<ChunkHeader*>(baseAllocator_->Malloc(sizeof(ChunkHeader) + capacity));
-        chunk->capacity = capacity;
-        chunk->size = 0;
-        chunk->next = chunkHead_;
-        chunkHead_ =  chunk;
+            ownBaseAllocator_ = baseAllocator_ = CEREAL_RAPIDJSON_NEW(BaseAllocator());
+        if (ChunkHeader* chunk = reinterpret_cast<ChunkHeader*>(baseAllocator_->Malloc(CEREAL_RAPIDJSON_ALIGN(sizeof(ChunkHeader)) + capacity))) {
+            chunk->capacity = capacity;
+            chunk->size = 0;
+            chunk->next = chunkHead_;
+            chunkHead_ =  chunk;
+            return true;
+        }
+        else
+            return false;
     }
 
     static const int kDefaultChunkCapacity = 64 * 1024; //!< Default chunk capacity.
@@ -256,6 +266,6 @@ private:
     BaseAllocator* ownBaseAllocator_;   //!< base allocator created by this object.
 };
 
-RAPIDJSON_NAMESPACE_END
+CEREAL_RAPIDJSON_NAMESPACE_END
 
-#endif // RAPIDJSON_ENCODINGS_H_
+#endif // CEREAL_RAPIDJSON_ENCODINGS_H_

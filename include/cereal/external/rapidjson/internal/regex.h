@@ -12,17 +12,35 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the 
 // specific language governing permissions and limitations under the License.
 
-#ifndef RAPIDJSON_INTERNAL_REGEX_H_
-#define RAPIDJSON_INTERNAL_REGEX_H_
+#ifndef CEREAL_RAPIDJSON_INTERNAL_REGEX_H_
+#define CEREAL_RAPIDJSON_INTERNAL_REGEX_H_
 
-#include "../rapidjson.h"
+#include "../allocators.h"
+#include "../stream.h"
 #include "stack.h"
 
-#ifndef RAPIDJSON_REGEX_VERBOSE
-#define RAPIDJSON_REGEX_VERBOSE 0
+#ifdef __clang__
+CEREAL_RAPIDJSON_DIAG_PUSH
+CEREAL_RAPIDJSON_DIAG_OFF(padded)
+CEREAL_RAPIDJSON_DIAG_OFF(switch-enum)
+CEREAL_RAPIDJSON_DIAG_OFF(implicit-fallthrough)
 #endif
 
-RAPIDJSON_NAMESPACE_BEGIN
+#ifdef __GNUC__
+CEREAL_RAPIDJSON_DIAG_PUSH
+CEREAL_RAPIDJSON_DIAG_OFF(effc++)
+#endif
+
+#ifdef _MSC_VER
+CEREAL_RAPIDJSON_DIAG_PUSH
+CEREAL_RAPIDJSON_DIAG_OFF(4512) // assignment operator could not be generated
+#endif
+
+#ifndef CEREAL_RAPIDJSON_REGEX_VERBOSE
+#define CEREAL_RAPIDJSON_REGEX_VERBOSE 0
+#endif
+
+CEREAL_RAPIDJSON_NAMESPACE_BEGIN
 namespace internal {
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,19 +76,27 @@ static const SizeType kRegexInvalidRange = ~SizeType(0);
     - \c \\r Carriage return (U+000D)
     - \c \\t Tab (U+0009)
     - \c \\v Vertical tab (U+000B)
+
+    \note This is a Thompson NFA engine, implemented with reference to 
+        Cox, Russ. "Regular Expression Matching Can Be Simple And Fast (but is slow in Java, Perl, PHP, Python, Ruby,...).", 
+        https://swtch.com/~rsc/regexp/regexp1.html 
 */
 template <typename Encoding, typename Allocator = CrtAllocator>
 class GenericRegex {
 public:
     typedef typename Encoding::Ch Ch;
 
-    GenericRegex(const Ch* source, Allocator* allocator = 0) : states_(allocator, 256), ranges_(allocator, 256), root_(kRegexInvalidState), stateCount_(), rangeCount_(), anchorBegin_(), anchorEnd_() {
+    GenericRegex(const Ch* source, Allocator* allocator = 0) : 
+        states_(allocator, 256), ranges_(allocator, 256), root_(kRegexInvalidState), stateCount_(), rangeCount_(), 
+        stateSet_(), state0_(allocator, 0), state1_(allocator, 0), anchorBegin_(), anchorEnd_()
+    {
         GenericStringStream<Encoding> ss(source);
         DecodedStream<GenericStringStream<Encoding> > ds(ss);
         Parse(ds);
     }
 
     ~GenericRegex() {
+        Allocator::Free(stateSet_);
     }
 
     bool IsValid() const {
@@ -136,7 +162,12 @@ private:
     public:
         DecodedStream(SourceStream& ss) : ss_(ss), codepoint_() { Decode(); }
         unsigned Peek() { return codepoint_; }
-        unsigned Take() { unsigned c = codepoint_; Decode(); return c; }
+        unsigned Take() {
+            unsigned c = codepoint_;
+            if (c) // No further decoding when '\0'
+                Decode();
+            return c;
+        }
 
     private:
         void Decode() {
@@ -149,22 +180,22 @@ private:
     };
 
     State& GetState(SizeType index) {
-        RAPIDJSON_ASSERT(index < stateCount_);
+        CEREAL_RAPIDJSON_ASSERT(index < stateCount_);
         return states_.template Bottom<State>()[index];
     }
 
     const State& GetState(SizeType index) const {
-        RAPIDJSON_ASSERT(index < stateCount_);
+        CEREAL_RAPIDJSON_ASSERT(index < stateCount_);
         return states_.template Bottom<State>()[index];
     }
 
     Range& GetRange(SizeType index) {
-        RAPIDJSON_ASSERT(index < rangeCount_);
+        CEREAL_RAPIDJSON_ASSERT(index < rangeCount_);
         return ranges_.template Bottom<Range>()[index];
     }
 
     const Range& GetRange(SizeType index) const {
-        RAPIDJSON_ASSERT(index < rangeCount_);
+        CEREAL_RAPIDJSON_ASSERT(index < rangeCount_);
         return ranges_.template Bottom<Range>()[index];
     }
 
@@ -230,13 +261,13 @@ private:
                 case '{':
                     {
                         unsigned n, m;
-                        if (!ParseUnsigned(ds, &n) || n == 0)
+                        if (!ParseUnsigned(ds, &n))
                             return;
 
                         if (ds.Peek() == ',') {
                             ds.Take();
                             if (ds.Peek() == '}')
-                                m = 0;
+                                m = kInfinityQuantifier;
                             else if (!ParseUnsigned(ds, &m) || m < n)
                                 return;
                         }
@@ -287,7 +318,7 @@ private:
             Patch(e->out, NewState(kRegexInvalidState, kRegexInvalidState, 0));
             root_ = e->start;
 
-#if RAPIDJSON_REGEX_VERBOSE
+#if CEREAL_RAPIDJSON_REGEX_VERBOSE
             printf("root: %d\n", root_);
             for (SizeType i = 0; i < stateCount_ ; i++) {
                 State& s = GetState(i);
@@ -295,6 +326,14 @@ private:
             }
             printf("\n");
 #endif
+        }
+
+        // Preallocate buffer for SearchWithAnchoring()
+        CEREAL_RAPIDJSON_ASSERT(stateSet_ == 0);
+        if (stateCount_ > 0) {
+            stateSet_ = static_cast<unsigned*>(states_.GetAllocator().Malloc(GetStateSetSize()));
+            state0_.template Reserve<SizeType>(stateCount_);
+            state1_.template Reserve<SizeType>(stateCount_);
         }
     }
 
@@ -336,14 +375,14 @@ private:
     bool Eval(Stack<Allocator>& operandStack, Operator op) {
         switch (op) {
             case kConcatenation:
-                if (operandStack.GetSize() >= sizeof(Frag) * 2) {
+                CEREAL_RAPIDJSON_ASSERT(operandStack.GetSize() >= sizeof(Frag) * 2);
+                {
                     Frag e2 = *operandStack.template Pop<Frag>(1);
                     Frag e1 = *operandStack.template Pop<Frag>(1);
                     Patch(e1.out, e2.start);
                     *operandStack.template Push<Frag>() = Frag(e1.start, e2.out, Min(e1.minIndex, e2.minIndex));
-                    return true;
                 }
-                return false;
+                return true;
 
             case kAlternation:
                 if (operandStack.GetSize() >= sizeof(Frag) * 2) {
@@ -374,7 +413,8 @@ private:
                 }
                 return false;
 
-            case kOneOrMore:
+            default: 
+                CEREAL_RAPIDJSON_ASSERT(op == kOneOrMore);
                 if (operandStack.GetSize() >= sizeof(Frag)) {
                     Frag e = *operandStack.template Pop<Frag>(1);
                     SizeType s = NewState(kRegexInvalidState, e.start, 0);
@@ -383,22 +423,32 @@ private:
                     return true;
                 }
                 return false;
-
-            default:
-                return false;
         }
     }
 
     bool EvalQuantifier(Stack<Allocator>& operandStack, unsigned n, unsigned m) {
-        RAPIDJSON_ASSERT(n > 0);
-        RAPIDJSON_ASSERT(m == 0 || n <= m);         // m == 0 means infinity
-        if (operandStack.GetSize() < sizeof(Frag))
-            return false;
+        CEREAL_RAPIDJSON_ASSERT(n <= m);
+        CEREAL_RAPIDJSON_ASSERT(operandStack.GetSize() >= sizeof(Frag));
+
+        if (n == 0) {
+            if (m == 0)                             // a{0} not support
+                return false;
+            else if (m == kInfinityQuantifier)
+                Eval(operandStack, kZeroOrMore);    // a{0,} -> a*
+            else {
+                Eval(operandStack, kZeroOrOne);         // a{0,5} -> a?
+                for (unsigned i = 0; i < m - 1; i++)
+                    CloneTopOperand(operandStack);      // a{0,5} -> a? a? a? a? a?
+                for (unsigned i = 0; i < m - 1; i++)
+                    Eval(operandStack, kConcatenation); // a{0,5} -> a?a?a?a?a?
+            }
+            return true;
+        }
 
         for (unsigned i = 0; i < n - 1; i++)        // a{3} -> a a a
             CloneTopOperand(operandStack);
 
-        if (m == 0)
+        if (m == kInfinityQuantifier)
             Eval(operandStack, kOneOrMore);         // a{3,} -> a a a+
         else if (m > n) {
             CloneTopOperand(operandStack);          // a{3,5} -> a a a a
@@ -418,23 +468,25 @@ private:
     static SizeType Min(SizeType a, SizeType b) { return a < b ? a : b; }
 
     void CloneTopOperand(Stack<Allocator>& operandStack) {
-        const Frag *src = operandStack.template Top<Frag>();
-        SizeType count = stateCount_ - src->minIndex; // Assumes top operand contains states in [src->minIndex, stateCount_)
+        const Frag src = *operandStack.template Top<Frag>(); // Copy constructor to prevent invalidation
+        SizeType count = stateCount_ - src.minIndex; // Assumes top operand contains states in [src->minIndex, stateCount_)
         State* s = states_.template Push<State>(count);
-        memcpy(s, &GetState(src->minIndex), count * sizeof(State));
+        memcpy(s, &GetState(src.minIndex), count * sizeof(State));
         for (SizeType j = 0; j < count; j++) {
             if (s[j].out != kRegexInvalidState)
                 s[j].out += count;
             if (s[j].out1 != kRegexInvalidState)
                 s[j].out1 += count;
         }
-        *operandStack.template Push<Frag>() = Frag(src->start + count, src->out + count, src->minIndex + count);
+        *operandStack.template Push<Frag>() = Frag(src.start + count, src.out + count, src.minIndex + count);
         stateCount_ += count;
     }
 
     template <typename InputStream>
     bool ParseUnsigned(DecodedStream<InputStream>& ds, unsigned* u) {
         unsigned r = 0;
+        if (ds.Peek() < '0' || ds.Peek() > '9')
+            return false;
         while (ds.Peek() >= '0' && ds.Peek() <= '9') {
             if (r >= 429496729 && ds.Peek() > '5') // 2^32 - 1 = 4294967295
                 return false; // overflow
@@ -467,7 +519,7 @@ private:
                     return false;   // Error: nothing inside []
                 if (step == 2) { // Add trailing '-'
                     SizeType r = NewRange('-');
-                    RAPIDJSON_ASSERT(current != kRegexInvalidRange);
+                    CEREAL_RAPIDJSON_ASSERT(current != kRegexInvalidRange);
                     GetRange(current).next = r;
                 }
                 if (negate)
@@ -506,7 +558,7 @@ private:
                     break;
 
                 default:
-                    RAPIDJSON_ASSERT(step == 2);
+                    CEREAL_RAPIDJSON_ASSERT(step == 2);
                     GetRange(current).end = codepoint;
                     step = 0;
                 }
@@ -553,24 +605,18 @@ private:
 
     template <typename InputStream>
     bool SearchWithAnchoring(InputStream& is, bool anchorBegin, bool anchorEnd) const {
-        RAPIDJSON_ASSERT(IsValid());
+        CEREAL_RAPIDJSON_ASSERT(IsValid());
         DecodedStream<InputStream> ds(is);
 
-        Allocator allocator;
-        Stack<Allocator> state0(&allocator, stateCount_ * sizeof(SizeType));
-        Stack<Allocator> state1(&allocator, stateCount_ * sizeof(SizeType));
-        Stack<Allocator> *current = &state0, *next = &state1;
+        state0_.Clear();
+        Stack<Allocator> *current = &state0_, *next = &state1_;
+        const size_t stateSetSize = GetStateSetSize();
+        std::memset(stateSet_, 0, stateSetSize);
 
-        const size_t stateSetSize = (stateCount_ + 31) / 32 * 4;
-        unsigned* stateSet = static_cast<unsigned*>(allocator.Malloc(stateSetSize));
-        std::memset(stateSet, 0, stateSetSize);
-
-        bool matched = false;
-        matched = AddState(stateSet, *current, root_);
-
+        bool matched = AddState(*current, root_);
         unsigned codepoint;
         while (!current->Empty() && (codepoint = ds.Take()) != 0) {
-            std::memset(stateSet, 0, stateSetSize);
+            std::memset(stateSet_, 0, stateSetSize);
             next->Clear();
             matched = false;
             for (const SizeType* s = current->template Bottom<SizeType>(); s != current->template End<SizeType>(); ++s) {
@@ -579,39 +625,37 @@ private:
                     sr.codepoint == kAnyCharacterClass || 
                     (sr.codepoint == kRangeCharacterClass && MatchRange(sr.rangeStart, codepoint)))
                 {
-                    matched = AddState(stateSet, *next, sr.out) || matched;
+                    matched = AddState(*next, sr.out) || matched;
                     if (!anchorEnd && matched)
-                        goto exit;
+                        return true;
                 }
                 if (!anchorBegin)
-                    AddState(stateSet, *next, root_);
+                    AddState(*next, root_);
             }
-            Stack<Allocator>* temp = current;
-            current = next;
-            next = temp;
+            internal::Swap(current, next);
         }
 
-    exit:
-        Allocator::Free(stateSet);
         return matched;
     }
 
+    size_t GetStateSetSize() const {
+        return (stateCount_ + 31) / 32 * 4;
+    }
+
     // Return whether the added states is a match state
-    bool AddState(unsigned* stateSet, Stack<Allocator>& l, SizeType index) const {
-        if (index == kRegexInvalidState)
-            return true;
+    bool AddState(Stack<Allocator>& l, SizeType index) const {
+        CEREAL_RAPIDJSON_ASSERT(index != kRegexInvalidState);
 
         const State& s = GetState(index);
         if (s.out1 != kRegexInvalidState) { // Split
-            bool matched = AddState(stateSet, l, s.out);
-            matched = AddState(stateSet, l, s.out1) || matched;
-            return matched;
+            bool matched = AddState(l, s.out);
+            return AddState(l, s.out1) || matched;
         }
-        else if (!(stateSet[index >> 5] & (1 << (index & 31)))) {
-            stateSet[index >> 5] |= (1 << (index & 31));
-            *l.template Push<SizeType>() = index;
+        else if (!(stateSet_[index >> 5] & (1 << (index & 31)))) {
+            stateSet_[index >> 5] |= (1 << (index & 31));
+            *l.template PushUnsafe<SizeType>() = index;
         }
-        return GetState(index).out == kRegexInvalidState;
+        return s.out == kRegexInvalidState; // by using PushUnsafe() above, we can ensure s is not validated due to reallocation.
     }
 
     bool MatchRange(SizeType rangeIndex, unsigned codepoint) const {
@@ -630,6 +674,13 @@ private:
     SizeType root_;
     SizeType stateCount_;
     SizeType rangeCount_;
+
+    static const unsigned kInfinityQuantifier = ~0u;
+
+    // For SearchWithAnchoring()
+    uint32_t* stateSet_;        // allocated by states_.GetAllocator()
+    mutable Stack<Allocator> state0_;
+    mutable Stack<Allocator> state1_;
     bool anchorBegin_;
     bool anchorEnd_;
 };
@@ -637,6 +688,14 @@ private:
 typedef GenericRegex<UTF8<> > Regex;
 
 } // namespace internal
-RAPIDJSON_NAMESPACE_END
+CEREAL_RAPIDJSON_NAMESPACE_END
 
-#endif // RAPIDJSON_INTERNAL_REGEX_H_
+#ifdef __clang__
+CEREAL_RAPIDJSON_DIAG_POP
+#endif
+
+#ifdef _MSC_VER
+CEREAL_RAPIDJSON_DIAG_POP
+#endif
+
+#endif // CEREAL_RAPIDJSON_INTERNAL_REGEX_H_
