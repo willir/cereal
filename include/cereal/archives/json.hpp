@@ -57,6 +57,7 @@ namespace cereal
 #include "cereal/external/rapidjson/prettywriter.h"
 #include "cereal/external/rapidjson/ostreamwrapper.h"
 #include "cereal/external/rapidjson/istreamwrapper.h"
+#include "cereal/external/rapidjson/bufferostreamwrapper.h"
 #include "cereal/external/rapidjson/document.h"
 #include "cereal/external/base64.hpp"
 
@@ -101,7 +102,7 @@ namespace cereal
   {
     enum class NodeType { StartObject, InObject, StartArray, InArray };
 
-    using WriteStream = CEREAL_RAPIDJSON_NAMESPACE::OStreamWrapper;
+    using WriteStream = CEREAL_RAPIDJSON_NAMESPACE::BufferOStreamWrapper<>;
 #ifdef CEREAL_NON_PRETTY_JSON
     using JSONWriter = CEREAL_RAPIDJSON_NAMESPACE::Writer<WriteStream>;
 #else
