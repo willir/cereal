@@ -9,14 +9,33 @@
 
 namespace cereal {
 
-inline void prologue( JSONOutputArchive & ar, const CEREAL_RAPIDJSON_NAMESPACE::Document & json )
+inline void prologue( JSONOutputArchive & ar, const CEREAL_RAPIDJSON_NAMESPACE::Value & json )
 {
   prologue(ar, 0);
 }
 
-inline void epilogue( JSONOutputArchive & ar, const CEREAL_RAPIDJSON_NAMESPACE::Document & json )
+inline void epilogue( JSONOutputArchive & ar, const CEREAL_RAPIDJSON_NAMESPACE::Value & json )
 {
   epilogue(ar, 0);
+}
+
+inline void CEREAL_SAVE_FUNCTION_NAME(
+        JSONOutputArchive & ar,
+        const CEREAL_RAPIDJSON_NAMESPACE::Value & json )
+{
+    ar.saveValue(json);
+}
+
+// ---------------------------------------
+
+inline void prologue( JSONOutputArchive & ar, const CEREAL_RAPIDJSON_NAMESPACE::Document & json )
+{
+    prologue(ar, 0);
+}
+
+inline void epilogue( JSONOutputArchive & ar, const CEREAL_RAPIDJSON_NAMESPACE::Document & json )
+{
+    epilogue(ar, 0);
 }
 
 inline void CEREAL_SAVE_FUNCTION_NAME(
