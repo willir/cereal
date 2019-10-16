@@ -265,6 +265,8 @@ namespace cereal
       void saveValue(char const * s)        { itsWriter.String(s);                                                       }
       //! Saves a nullptr to the current node
       void saveValue(std::nullptr_t)        { itsWriter.Null();                                                          }
+      //! Saves a rapidjson value to the current node
+      void saveValue(const CEREAL_RAPIDJSON_NAMESPACE::Value &d) { d.Accept(itsWriter);                                  }
 
     private:
       // Some compilers/OS have difficulty disambiguating the above for various flavors of longs, so we provide
@@ -632,10 +634,12 @@ namespace cereal
       {
         search();
 
-        if(itsIteratorStack.back().value().IsArray())
-          itsIteratorStack.emplace_back(itsIteratorStack.back().value().Begin(), itsIteratorStack.back().value().End());
+        auto &value = itsIteratorStack.back().value();
+
+        if(value.IsArray())
+          itsIteratorStack.emplace_back(value.Begin(), value.End());
         else
-          itsIteratorStack.emplace_back(itsIteratorStack.back().value().MemberBegin(), itsIteratorStack.back().value().MemberEnd());
+          itsIteratorStack.emplace_back(value.MemberBegin(), value.MemberEnd());
       }
 
       //! Finishes the most recently started node
@@ -697,6 +701,12 @@ namespace cereal
       void loadValue(std::string & val) { search(); val = itsIteratorStack.back().value().GetString(); ++itsIteratorStack.back(); }
       //! Loads a nullptr from the current node
       void loadValue(std::nullptr_t&)   { search(); CEREAL_RAPIDJSON_ASSERT(itsIteratorStack.back().value().IsNull()); ++itsIteratorStack.back(); }
+      //! Loads a rapidjson Value from the current node
+      void loadValue(CEREAL_RAPIDJSON_NAMESPACE::Document & val) {
+        search();
+        val.CopyFrom(itsIteratorStack.back().value(), val.GetAllocator());
+        ++itsIteratorStack.back();
+      }
 
       bool isNull() { search(); return itsIteratorStack.back().value().IsNull(); }
       bool isExist() { return findName(); }
