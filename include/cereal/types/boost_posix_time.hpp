@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include <cereal/cereal.hpp>
 
 #include "boost/date_time/posix_time/posix_time_types.hpp"
@@ -35,7 +37,7 @@ inline void CEREAL_SAVE_FUNCTION_NAME( JSONOutputArchive & ar, const boost::posi
   namespace pt = boost::posix_time;
   if(!time.is_not_a_date_time()) {
     pt::time_duration dur = time - pt::ptime(boost::gregorian::date(1970,1,1));
-    ar.saveValue(std::time_t(dur.ticks() / dur.ticks_per_second()));
+    ar.saveValue((int64_t) (dur.ticks() / dur.ticks_per_second()));
   } else {
     ar.saveValue(nullptr);
   }
@@ -45,10 +47,10 @@ inline void CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, boost::posix_time:
 {
   namespace pt = boost::posix_time;
   if(!ar.isNull()) {
-    std::time_t tmp = 0;
+    int64_t tmp = 0;
     ar.loadValue(tmp);
     pt::ptime start(boost::gregorian::date(1970,1,1));
-    time = start + pt::seconds(static_cast<int64_t>(tmp));
+    time = start + pt::seconds(tmp);
   } else {
     time = pt::ptime{};  // Init to Not A Day Time
   }
@@ -81,7 +83,7 @@ inline void CEREAL_SAVE_FUNCTION_NAME( JSONOutputArchive & ar, const boost::posi
 {
   namespace pt = boost::posix_time;
   if(!dur.is_not_a_date_time()) {
-    ar.saveValue(std::time_t(dur.ticks() / dur.ticks_per_second()));
+    ar.saveValue((int64_t) (dur.ticks() / dur.ticks_per_second()));
   } else {
     ar.saveValue(nullptr);
   }
@@ -91,13 +93,13 @@ inline void CEREAL_LOAD_FUNCTION_NAME( JSONInputArchive & ar, boost::posix_time:
 {
   namespace pt = boost::posix_time;
   if(!ar.isNull()) {
-    pt::time_duration::sec_type tmp = 0;
+    int64_t tmp = 0;
     ar.loadValue(tmp);
-    dur = pt::time_duration(0, 0, tmp);
+    dur = pt::time_duration(0, 0, static_cast<pt::time_duration::sec_type>(tmp));
   } else {
     dur = pt::time_duration(boost::date_time::not_a_date_time);
   }
 }
 
 
-} // namespace cereall
+} // namespace cereal
